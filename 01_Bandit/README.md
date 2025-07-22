@@ -6,29 +6,42 @@ Windows' command prompt was used for logging in to each level.
 
 # Overview
 
-| Level    | Concepts Needed                                        | New Commands Used                            |
-| :------: | :----------------------------------------------------- | :------------------------------------------- |
-| Level 0  | SSH login                                              | ssh                                          |
-| Level 1  | Reading files                                          | ls, cat                                      |
-| Level 2  | Accessing files with special characters                |                                              |
-| Level 3  | Accessing files with spaces in filename                |                                              |
-| Level 4  | Changing directories, accessing hidden files           | cd                                           |
-| Level 5  | File types                                             | file                                         |
-| Level 6  | File sizes, non-executable files, grep and piping      | du, find, grep, \|                           |
-| Level 7  | File user and file group ownership                     |                                              |
-| Level 8  | Grep and piping of file contents                       |                                              |
-| Level 9  | Sorting and finding unique values                      | sort, uniq                                   |
-| Level 10 | Finding specific strings in a file                     | strings                                      |
-| Level 11 | Base64 encoding and decoding                           | base64                                       |
-| Level 12 | Rot13 substitution cipher                              | tr                                           |
-| Level 13 | Hexdump, compression/decompression and file signatures | mkdir, mktemp, cp, mv, xxd, gzip, bzip2, tar |
-| Level 14 | SSH login with private key                             |                                              |
-| Level 15 | Netcat and network communication                       | nc                                           |
-| Level 16 | SSL encryption                                         | openssl s_client                             |
-| Level 17 | Port scanning, service detection, file permissions     | nmap, chmod                                  |
-| Level 18 | Finding differences between files                      | diff                                         |
-| Level 19 | Using SSH outside of interactive sessions              |                                              |
-| Level 20 | Set user ID (setuid), file permissions                 |                                              |
+| Level    | Concepts Needed                                             | New Commands Used                                               |
+| :------: | :---------------------------------------------------------- | :-------------------------------------------------------------- |
+| Level 0  | SSH login                                                   | ssh                                                             |
+| Level 1  | Reading files                                               | ls, cat                                                         |
+| Level 2  | Accessing files with special characters                     |                                                                 |
+| Level 3  | Accessing files with spaces in filename                     |                                                                 |
+| Level 4  | Changing directories, accessing hidden files                | cd                                                              |
+| Level 5  | File types                                                  | file                                                            |
+| Level 6  | File sizes, non-executable files, grep and piping           | du, find, grep, \|                                              |
+| Level 7  | File user and file group ownership                          |                                                                 |
+| Level 8  | Grep and piping of file contents                            |                                                                 |
+| Level 9  | Sorting and finding unique values                           | sort, uniq                                                      |
+| Level 10 | Finding specific strings in a file                          | strings                                                         |
+| Level 11 | Base64 encoding and decoding                                | base64                                                          |
+| Level 12 | Rot13 substitution cipher                                   | tr                                                              |
+| Level 13 | Hexdump, compression/decompression and file signatures      | mkdir, mktemp, cp, mv, xxd, gzip, bzip2, tar, rm                |
+| Level 14 | SSH login with private key                                  |                                                                 |
+| Level 15 | Netcat and network communication                            | nc                                                              |
+| Level 16 | SSL encryption                                              | openssl s_client                                                |
+| Level 17 | Port scanning, service detection, file permissions          | nmap, chmod                                                     |
+| Level 18 | Finding differences between files                           | diff                                                            |
+| Level 19 | SSH remote command execution, shells, bash scripting        |                                                                 |
+| Level 20 | Set user ID (setuid), file permissions                      |                                                                 |
+| Level 21 | Background processes, network daemons, setuid binary        |                                                                 |
+| Level 22 | Cronjobs, bash scripting                                    |                                                                 |
+| Level 23 | Cronjobs, bash scripting, bash variables                    | whoami, md5sum, cut                                             |
+| Level 24 | Cronjobs, bash scripting, bash variables, file permissions  | stat, timeout, nano                                             |
+| Level 25 | Brute forcing passwords, bash scripting, netcat             |                                                                 |
+| Level 26 | Shell environments, vim                                     | more, set                                                       |
+| Level 27 | Setuid binary                                               |                                                                 |
+| Level 28 | Git introduction                                            | git clone                                                       |
+| Level 29 | Git commit history                                          | git log, git show                                               |
+| Level 30 | Git branching                                               | git branch, git switch, git checkout                            |
+| Level 31 | Git tagging                                                 | git tag                                                         |
+| Level 32 | Git add, commit, push, .gitignore                           | git add, git commit, git diff, git reset, git restore, git push |
+| Level 33 | Bash special variables, shell environments                  |                                                                 |
 
 # Contents
 
@@ -1189,3 +1202,1088 @@ bandit19@bandit:~$ ./bandit20-do cat /etc/bandit_pass/bandit20
 ```
 
 ---
+
+# Level 21
+
+## Task
+
+There is a setuid binary in the homedirectory that does the following: it makes a connection to localhost on the port you specify as a commandline argument.
+
+It then reads a line of text from the connection and compares it to the password in the previous level (bandit20). If the password is correct, it will transmit the password for the next level (bandit21).
+
+NOTE: Try connecting to your own network daemon to see if it works as you think.
+
+## Solution
+
+For this level, the given binary `suconnect` connects to a user-defined port to receive the password for bandit20.
+
+```
+bandit20@bandit:~$ ls
+suconnect
+bandit20@bandit:~$ ./suconnect
+Usage: ./suconnect <portnumber>
+This program will connect to the given port on localhost using TCP. If it receives the correct password from the other side, the next password is transmitted back.
+```
+
+This means that we'll need to set up a background process to wait for a connection at that port, and then send the password once a connection is made to it.
+
+The `-l` flag for `nc` is used, which tells `nc` to listen for an incoming connection instead of initiating one to a remote host. With `nc -l -p 2401`, we've set up a network process that listens at port 2401.
+
+To send a message through this, we use `|` to pipe the password through the process, `echo <password> | nc -l -p 2401`.
+
+```
+bandit20@bandit:~$ echo <password> | nc -l -p 2401
+-bash: syntax error near unexpected token `|'
+bandit20@bandit:~$ echo 0qXahG8ZjOVMN9Ghs7iOWsCfZyXOUbYO | nc -l -p 2401
+^C
+bandit20@bandit:~$
+```
+
+However, this does let us return to the command prompt until we exit the process because `nc` is running. We'll need to make `nc` run in the background using the `&` symbol.
+
+We'll do this and test if it works by connecting to our own port.
+
+```
+bandit20@bandit:~$ echo 0qXahG8ZjOVMN9Ghs7iOWsCfZyXOUbYO | nc -l -p 2401 &
+[1] 1573294
+bandit20@bandit:~$ nc localhost 2401
+0qXahG8ZjOVMN9Ghs7iOWsCfZyXOUbYO
+test
+test
+^C
+bandit20@bandit:~$ nc localhost 2401
+[1]+  Done                    echo 0qXahG8ZjOVMN9Ghs7iOWsCfZyXOUbYO | nc -l -p 2401
+bandit20@bandit:~$ nc localhost 2401
+bandit20@bandit:~$
+```
+
+We can see that after the network daemon is done sending the password, it remains open and simply echoes back whatever is sent to it until it is disconnected from.
+
+After disconnection, the process ends and reports that it is completed. Subsequent attempts to connect to the port show that there is no longer any process listening on it. 
+
+With this, we can get the password for the next level.
+
+```
+bandit20@bandit:~$ echo 0qXahG8ZjOVMN9Ghs7iOWsCfZyXOUbYO | nc -l -p 2401 &
+[1] 1582268
+bandit20@bandit:~$ ./suconnect 2401
+Read: 0qXahG8ZjOVMN9Ghs7iOWsCfZyXOUbYO
+Password matches, sending next password
+EeoULMCra2q0dSkYj561DX7s1CpBuOBt
+```
+
+## Extras
+
+A more naieve approach to running the the network process in the background would be to use two terminals, one to run the network process and another to start `./suconnect` afterwards.
+
+A slightly cleaner way to write the `nc` command would be to add the `-n` flag to `echo`, suppressing the trailing newline character and making the process exit once it sends the bandit20 password.
+
+```
+bandit20@bandit:~$ echo -n 0qXahG8ZjOVMN9Ghs7iOWsCfZyXOUbYO | nc -l -p 2401 &
+[1] 1594601
+bandit20@bandit:~$ ./suconnect 2401
+Read: 0qXahG8ZjOVMN9Ghs7iOWsCfZyXOUbYO
+Password matches, sending next password
+EeoULMCra2q0dSkYj561DX7s1CpBuOBt
+[1]+  Done                    echo -n 0qXahG8ZjOVMN9Ghs7iOWsCfZyXOUbYO | nc -l -p 2401
+```
+
+---
+
+# Level 22
+
+## Task
+
+A program is running automatically at regular intervals from cron, the time-based job scheduler. Look in /etc/cron.d/ for the configuration and see what command is being executed.
+
+## Solution
+
+Cron is used to run scripts or commands at user-defined intervals.
+
+Cronjobs are defined in a file (the crontab) following the format, with the `<user>` being optional:
+
+```
+<minute> <hour> <day> <month> <weekday> <user> <command>
+```
+
+The following example runs `/etc/cron.d/script.sh` as the user `bandit21` at 11.30am on the 1st day of month, every month, every weekday.
+
+```
+30 11 1 * * bandit21 /etc/cron.d/script.sh
+```
+
+We first check out what is being run in the crontab for the next level (bandit22).
+
+```
+bandit21@bandit:~$ ls /etc/cron.d
+clean_tmp  cronjob_bandit22  cronjob_bandit23  cronjob_bandit24  e2scrub_all  otw-tmp-dir  sysstat
+bandit21@bandit:~$ cat /etc/cron.d/cronjob_bandit22
+@reboot bandit22 /usr/bin/cronjob_bandit22.sh &> /dev/null
+* * * * * bandit22 /usr/bin/cronjob_bandit22.sh &> /dev/null
+```
+
+The first cronjob, on reboot, runs `/usr/bin/cronjob_bandit22.sh` as bandit22 in the background and sends any output to the bin. The second cronjob does the same but on every minute of every hour, instead of only on reboot.
+
+We'll check out what the script `/usr/bin/cronjob_bandit22.sh` does.
+
+```
+bandit21@bandit:~$ cat /usr/bin/cronjob_bandit22.sh
+#!/bin/bash
+chmod 644 /tmp/t7O6lds9S0RqQh9aMcz6ShpAoZKF7fgv
+cat /etc/bandit_pass/bandit22 > /tmp/t7O6lds9S0RqQh9aMcz6ShpAoZKF7fgv
+```
+
+This tells us that every minute, the file `/tmp/t7O6lds9S0RqQh9aMcz6ShpAoZKF7fgv` has its permissions changed to `rw-r--r--`, and then the password for bandit22 is written to it.
+
+```
+bandit21@bandit:~$ cat /tmp/t7O6lds9S0RqQh9aMcz6ShpAoZKF7fgv
+tRae0UfB9v0UzbCdn9cY0gQnds9GF58Q
+```
+
+---
+
+# Level 23
+
+## Task
+
+A program is running automatically at regular intervals from cron, the time-based job scheduler. Look in /etc/cron.d/ for the configuration and see what command is being executed.
+
+NOTE: Looking at shell scripts written by other people is a very useful skill. The script for this level is intentionally made easy to read. If you are having problems understanding what it does, try executing it to see the debug information it prints.
+
+## Solution
+
+We do the same initial steps as in the level before, and inspect `/usr/bin/cronjob_bandit23.sh`.
+
+```
+bandit22@bandit:~$ ls /etc/cron.d
+clean_tmp  cronjob_bandit22  cronjob_bandit23  cronjob_bandit24  e2scrub_all  otw-tmp-dir  sysstat
+bandit22@bandit:~$ cat /etc/cron.d/cronjob_bandit23
+@reboot bandit23 /usr/bin/cronjob_bandit23.sh  &> /dev/null
+* * * * * bandit23 /usr/bin/cronjob_bandit23.sh  &> /dev/null
+bandit22@bandit:~$ cat /usr/bin/cronjob_bandit23.sh
+#!/bin/bash
+
+myname=$(whoami)
+mytarget=$(echo I am user $myname | md5sum | cut -d ' ' -f 1)
+
+echo "Copying passwordfile /etc/bandit_pass/$myname to /tmp/$mytarget"
+
+cat /etc/bandit_pass/$myname > /tmp/$mytarget
+```
+
+The `$(<command>)` syntax passes the output of the command as an argument in another command.
+
+The `whoami` command outputs the current user. Since the script is running as `bandit23`, the input to the next command should be `bandit23`.
+
+The next command uses two new commands, `md5sum` and `cut`. `md5sum` prints the MD5 checksums of the input file, and `cut` is used here to return only the text before the first space character.
+
+Running the entire command, we see that the `mytarget` variable is `8ca319486bfbbc3663ea0fbe81326349`.
+
+```
+bandit22@bandit:~$ echo I am user bandit23 | md5sum | cut -d ' ' -f 1
+8ca319486bfbbc3663ea0fbe81326349
+```
+
+This gives us the path for where the password is stored, `/tmp/8ca319486bfbbc3663ea0fbe81326349`.
+
+```
+bandit22@bandit:~$ cat /tmp/8ca319486bfbbc3663ea0fbe81326349
+0Zf11ioIjMVN551jX3CmStKLYqjk54Ga
+```
+
+---
+
+# Level 24
+
+## Task
+
+A program is running automatically at regular intervals from cron, the time-based job scheduler. Look in /etc/cron.d/ for the configuration and see what command is being executed.
+
+NOTE: This level requires you to create your own first shell-script. This is a very big step and you should be proud of yourself when you beat this level!
+
+NOTE 2: Keep in mind that your shell script is removed once executed, so you may want to keep a copy around…
+
+## Solution
+
+The same starting steps as before, and we get a longer script in `/usr/bin/cronjob_bandit24.sh` this time.
+
+```
+bandit23@bandit:~$ ls /etc/cron.d
+clean_tmp  cronjob_bandit22  cronjob_bandit23  cronjob_bandit24  e2scrub_all  otw-tmp-dir  sysstat
+bandit23@bandit:~$ cat /etc/cron.d/cronjob_bandit24
+@reboot bandit24 /usr/bin/cronjob_bandit24.sh &> /dev/null
+* * * * * bandit24 /usr/bin/cronjob_bandit24.sh &> /dev/null
+bandit23@bandit:~$ cat /usr/bin/cronjob_bandit24.sh
+#!/bin/bash
+
+myname=$(whoami)
+
+cd /var/spool/$myname/foo
+echo "Executing and deleting all scripts in /var/spool/$myname/foo:"
+for i in * .*;
+do
+    if [ "$i" != "." -a "$i" != ".." ];
+    then
+        echo "Handling $i"
+        owner="$(stat --format "%U" ./$i)"
+        if [ "${owner}" = "bandit23" ]; then
+            timeout -s 9 60 ./$i
+        fi
+        rm -f ./$i
+    fi
+done
+```
+
+The script itself tells us what it's doing, `echo "Executing and deleting all scripts in /var/spool/$myname/foo:"`, but let's break down what exactly is being done.
+
+The first part simply changes the directory based on the current user, in this case to `/var/spool/bandit24/foo`.
+
+```
+myname=$(whoami)
+
+cd /var/spool/$myname/foo
+```
+
+The next part, `for i in * .*;`, enters a for loop that performs the actions enclosed between `do` and `done` on every file/directory `*` and hidden file/directory `.*` in the directory.
+
+The if-then statement `if [ "$i" != "." -a "$i" != ".." ];` checks that the file/directory being worked on by the for loop isn't the current directory `.` or parent directory `..`.
+
+The next block of code first gets the owner of the file using `stat --format "%U" ./$i`, and if the owner is bandit23 (who we currently are logged in as), it executes the script stored in the file using `timeout`, which will also kill the command if it is still running after 60 seconds.
+
+```
+owner="$(stat --format "%U" ./$i)"
+if [ "${owner}" = "bandit23" ]; then
+    timeout -s 9 60 ./$i
+fi
+```
+
+The last part in the for loop, `rm -f ./$i` deletes the file regardless of ownership.
+
+To summarise, we know that:
+
+1. Every minute, the cronjob scans through and deletes all files in the `/var/spool/bandit24/foo` directory.
+2. If the file is owned by bandit23, the cronjob runs the file as bandit24.
+
+With this, we now know to write a script that will be executed as bandit24 that will give us the password from `/etc/bandit_pass/bandit24.
+
+We start by getting a temporary working directory and starting up `nano` to edit a file `password.sh`.
+
+```
+bandit23@bandit:~$ mktemp -d
+/tmp/tmp.FGa4yfYnEF
+bandit23@bandit:~$ cd /tmp/tmp.FGa4yfYnEF
+bandit23@bandit:/tmp/tmp.FGa4yfYnEF$ nano password.sh
+```
+
+Every script starts with a shebang `#!` to specify the interpreter. We can use `/bin/bash`, just like in the script from `/usr/bin/cronjob_bandit24.sh`.
+
+We then write a command to access bandit24's password and write it to our working directory.
+
+```bash
+#!/bin/bash
+
+cat /etc/bandit_pass/bandit24 > /tmp/tmp.FGa4yfYnEF/password
+```
+
+We should also add our own file `password` to the working directory.
+
+```
+bandit23@bandit:/tmp/tmp.FGa4yfYnEF$ touch password
+```
+
+We'll need to edit the permissions to allow others to execute our script file, and for others to access to our working directory and password file, since the user bandit24 will be running the script. Right now our files only have read access for everyone else.
+
+```
+bandit23@bandit:/tmp/tmp.FGa4yfYnEF$ ls -l
+total 4
+-rw-rw-r-- 1 bandit23 bandit23  0 Jul 22 09:37 password
+-rw-rw-r-- 1 bandit23 bandit23 74 Jul 22 09:24 password.sh
+```
+
+We do this using `chmod`, which we used back in [Level 17](#level-17), to add permissions for others.
+
+```
+bandit23@bandit:/tmp/tmp.FGa4yfYnEF$ chmod 777 /tmp/tmp.FGa4yfYnEF
+bandit23@bandit:/tmp/tmp.FGa4yfYnEF$ chmod 777 password
+bandit23@bandit:/tmp/tmp.FGa4yfYnEF$ chmod 777 password.sh
+bandit23@bandit:/tmp/tmp.FGa4yfYnEF$ ls -l
+total 4
+-rw-rw-rw- 1 bandit23 bandit23  0 Jul 22 09:37 password
+-rwxrwxr-x 1 bandit23 bandit23 74 Jul 22 09:24 password.sh
+```
+
+We copy the file into `/var/spool/bandit24/foo/` and wait for a minute.
+
+```
+bandit23@bandit:/tmp/tmp.FGa4yfYnEF$ cp password.sh /var/spool/bandit24/foo/password.sh
+bandit23@bandit:/tmp/tmp.FGa4yfYnEF$ cat password
+gb8KRRCsshuZXI0tUuR6ypOFjiZbf3G8
+```
+
+---
+
+# Level 25
+
+## Task
+
+A daemon is listening on port `30002` and will give you the password for `bandit25` if given the password for `bandit24` and a secret numeric 4-digit pincode. There is no way to retrieve the pincode except by going through all of the 10000 combinations, called brute-forcing.
+You do not need to create new connections each time.
+
+## Solution
+
+We start by connecting to port `30002` using `nc` and seeing what it does.
+
+```
+bandit24@bandit:~$ nc localhost 30002
+I am the pincode checker for user bandit25. Please enter the password for user bandit24 and the secret pincode on a single line, separated by a space.
+gb8KRRCsshuZXI0tUuR6ypOFjiZbf3G8 0000
+Wrong! Please enter the correct current password and pincode. Try again.
+gb8KRRCsshuZXI0tUuR6ypOFjiZbf3G8 0001
+Wrong! Please enter the correct current password and pincode. Try again.
+gb8KRRCsshuZXI0tUuR6ypOFjiZbf3G8 0002
+Wrong! Please enter the correct current password and pincode. Try again.
+^C
+```
+
+We could manually work our way through all 10,000 possiblities, but we could also write a script to do that for us.
+
+We first get a working directory and create a file for our script, `script.sh`.
+
+```
+bandit24@bandit:~$ mktemp -d
+/tmp/tmp.OI7GpstwZ5
+bandit24@bandit:~$ cd /tmp/tmp.OI7GpstwZ5
+bandit24@bandit:/tmp/tmp.OI7GpstwZ5$ nano script.sh
+```
+
+Then we write our script, appending the possible passwords to `passwords.txt`. To get a range of numbers for the `for` loop, the syntax is `{0..9999}`, but that only produces `1, 2, 3, ...` instead of the 4-digit numbers we want. For that, the syntax is `{0000..9999}`.
+
+```bash
+#!/bin/bash
+
+password="gb8KRRCsshuZXI0tUuR6ypOFjiZbf3G8"
+
+for i in {0000..9999}
+do
+    echo $password $i >> passwords.txt
+done
+```
+
+We run the script and are denied as it didn't have execute permissions. This is easily changed with `chmod`.
+
+```
+bandit24@bandit:/tmp/tmp.OI7GpstwZ5$ ./script.sh
+-bash: ./script.sh: Permission denied
+bandit24@bandit:/tmp/tmp.OI7GpstwZ5$ ls -l
+total 4
+-rw-rw-r-- 1 bandit24 bandit24 131 Jul 22 10:11 script.sh
+bandit24@bandit:/tmp/tmp.OI7GpstwZ5$ chmod 700 script.sh
+bandit24@bandit:/tmp/tmp.OI7GpstwZ5$ ./script.sh
+bandit24@bandit:/tmp/tmp.OI7GpstwZ5$ ls
+passwords.txt  script.sh
+bandit24@bandit:/tmp/tmp.OI7GpstwZ5$ head passwords.txt
+gb8KRRCsshuZXI0tUuR6ypOFjiZbf3G8 0000
+gb8KRRCsshuZXI0tUuR6ypOFjiZbf3G8 0001
+gb8KRRCsshuZXI0tUuR6ypOFjiZbf3G8 0002
+[...]
+```
+
+Now we send this to the server by piping the text in the file to `nc`, then saving the result into `results.txt`.
+
+```
+bandit24@bandit:/tmp/tmp.OI7GpstwZ5$ cat passwords.txt | nc localhost 30002 > results.txt
+bandit24@bandit:/tmp/tmp.OI7GpstwZ5$ ls
+passwords.txt  results.txt  script.sh
+bandit24@bandit:/tmp/tmp.OI7GpstwZ5$ head results.txt
+I am the pincode checker for user bandit25. Please enter the password for user bandit24 and the secret pincode on a single line, separated by a space.
+Wrong! Please enter the correct current password and pincode. Try again.
+Wrong! Please enter the correct current password and pincode. Try again.
+Wrong! Please enter the correct current password and pincode. Try again.
+[...]
+```
+
+To find the line with the correct password, we use `grep` with the `-v` flag to invert matches with "Wrong".
+
+```
+bandit24@bandit:/tmp/tmp.OI7GpstwZ5$ cat results.txt | grep -v Wrong
+I am the pincode checker for user bandit25. Please enter the password for user bandit24 and the secret pincode on a single line, separated by a space.
+Correct!
+The password of user bandit25 is iCi86ttT4KSNe1armKiwbQNmB3YJP3q4
+```
+
+---
+
+# Level 26
+
+## Task
+
+Logging in to bandit26 from bandit25 should be fairly easy… The shell for user bandit26 is not /bin/bash, but something else. Find out what it is, how it works and how to break out of it.
+
+NOTE: if you’re a Windows user and typically use Powershell to ssh into bandit: Powershell is known to cause issues with the intended solution to this level. You should use command prompt instead.
+
+## Solution
+
+An SSH key for bandit26 is available in the home directory when logging in to bandit25. However, trying to use it to log in to bandit 26 immediately logs us out.
+
+```
+bandit25@bandit:~$ ls
+bandit26.sshkey
+bandit25@bandit:~$ ssh -i bandit26.sshkey bandit26@localhost -p 2220
+The authenticity of host '[localhost]:2220 ([127.0.0.1]:2220)' can't be established.
+ED25519 key fingerprint is SHA256:C2ihUBV7ihnV1wUXRb4RrEcLfXC5CXlhmAAM/urerLY.
+[...]
+ Enjoy your stay!
+
+  _                     _ _ _   ___   __
+ | |                   | (_) | |__ \ / /
+ | |__   __ _ _ __   __| |_| |_   ) / /_
+ | '_ \ / _` | '_ \ / _` | | __| / / '_ \
+ | |_) | (_| | | | | (_| | | |_ / /| (_) |
+ |_.__/ \__,_|_| |_|\__,_|_|\__|____\___/
+Connection to localhost closed.
+bandit25@bandit:~$
+```
+
+As mentioned in the task, we'll need to find out what shell bandit26 is using. This can be found in the `/etc/passwd` file, which lists the default shells of the users.
+
+There are a lot of entries so we'll `grep bandit26` to find the relevant line, then open the referenced file.
+
+```
+bandit25@bandit:~$ cat /etc/passwd | grep bandit26
+bandit26:x:11026:11026:bandit level 26:/home/bandit26:/usr/bin/showtext
+bandit25@bandit:~$ cat /usr/bin/showtext
+#!/bin/sh
+
+export TERM=linux
+
+exec more ~/text.txt
+exit 0
+```
+
+The script uses `more` to open the file `text.txt` in bandit26's home directory, then exits.
+
+There are only a few things to look at here: `more`, and `text.txt` in bandit26's home directory.
+
+```
+bandit25@bandit:~$ cat /home/bandit26/text.txt
+cat: /home/bandit26/text.txt: Permission denied
+bandit25@bandit:~$ ls -l /home/bandit26/
+total 20
+-rwsr-x--- 1 bandit27 bandit26 14884 Apr 10 14:23 bandit27-do
+-rw-r----- 1 bandit26 bandit26   258 Apr 10 14:23 text.txt
+```
+
+We are unable to look into `text.txt` since we do not have read permission for the file, so the only option is to look into `more`.
+
+Reading the documentation, `more` lets us page through text one screenful at a time, and also allows for interactive commands based on `vi`.
+
+Unfortunately, the contents in `text.txt` are too short and can all be displayed in one screen. `more` only goes into interactive mode when the contents are long enough.
+
+I created three files, `short.txt` with just one line of text, `medium.txt` with enough text to fill just under one screen, and `long.txt` with multiple lines of text to demonstrate this.
+
+```
+bandit25@bandit:~$ mktemp -d
+/tmp/tmp.5j5BGtuKhf
+bandit25@bandit:~$ cd /tmp/tmp.5j5BGtuKhf
+bandit25@bandit:/tmp/tmp.5j5BGtuKhf$ nano short.txt
+bandit25@bandit:/tmp/tmp.5j5BGtuKhf$ nano medium.txt
+bandit25@bandit:/tmp/tmp.5j5BGtuKhf$ nano long.txt
+bandit25@bandit:/tmp/tmp.5j5BGtuKhf$ ls
+long.txt  medium.txt  short.txt
+bandit25@bandit:/tmp/tmp.5j5BGtuKhf$ more short.txt
+hello :)
+```
+
+Entering the command `more long.txt` shows this:
+
+![Screenshot of the terminal when more command is used on long.txt](https://github.com/jsjs2401/OverTheWire/blob/main/01_Bandit/bandit25-more-long-txt.png)
+
+If we enter `more medium.txt`, we see that it did not enter interactive mode.
+
+![Screenshot of the terminal when more command is used on medium.txt](https://github.com/jsjs2401/OverTheWire/blob/main/01_Bandit/bandit25-more-medium-txt-1.png)
+
+However, when we resize the window to be unable to fit all of `medium.txt`, we are able to enter interactive mode with `more`.
+
+![Screenshot of the resized terminal when more command is used on medium.txt](https://github.com/jsjs2401/OverTheWire/blob/main/01_Bandit/bandit25-more-medium-txt-2.png)
+
+With this in mind, we can try resizing the terminal and logging in to bandit26 again.
+
+```
+bandit25@bandit:/tmp/tmp.5j5BGtuKhf$ rm -rf /tmp/tmp.5j5BGtuKhf
+bandit25@bandit:/tmp/tmp.5j5BGtuKhf$ cd ~
+bandit25@bandit:~$ ssh -i bandit26.sshkey bandit26@localhost -p 2220
+The authenticity of host '[localhost]:2220 ([127.0.0.1]:2220)' can't be established.
+ED25519 key fingerprint is SHA256:C2ihUBV7ihnV1wUXRb4RrEcLfXC5CXlhmAAM/urerLY.
+[...]
+```
+
+![Screenshot of the resized terminal after successful SSH into bandit26](https://github.com/jsjs2401/OverTheWire/blob/main/01_Bandit/bandit25-more-ssh.png)
+
+Once we're in `more` interactive mode, we can resize the window and start up an editor by pressing `v`.
+
+We then set the shell to one that is not the user default by entering `:set shell=/bin/bash`, and then enter that shell by entering `:shell`.
+
+We're now logged in to bandit26.
+
+![Screenshot of the terminal after successful SSH into bandit26 and entering bash shell](https://github.com/jsjs2401/OverTheWire/blob/main/01_Bandit/bandit25-more-ssh-bash-shell.png)
+
+It's then a simple matter of getting the password for bandit26.
+
+```
+bandit26@bandit:~$ cat /etc/bandit_pass/bandit26
+s0773xxkk0MXfdqOfPRVr9L3jJBUOgCZ
+```
+
+We use `exit` to exit the shell, then enter `:q` to exit vim, returning to `more` interactive mode. Press `q` to exit interactive mode and be logged out from bandit26.
+
+---
+
+# Level 27
+
+## Task
+
+Good job getting a shell! Now hurry and grab the password for bandit27!
+
+## Solution
+
+Like back in [Level 20](#level-20), we get a binary to run commands as another user—in this case bandit27.
+
+```
+bandit26@bandit:~$ ls -l
+total 20
+-rwsr-x--- 1 bandit27 bandit26 14884 Apr 10 14:23 bandit27-do
+-rw-r----- 1 bandit26 bandit26   258 Apr 10 14:23 text.txt
+bandit26@bandit:~$ ./bandit27-do
+Run a command as another user.
+  Example: ./bandit27-do id
+bandit26@bandit:~$ ./bandit27-do cat /etc/bandit_pass/bandit27
+upsNCc7vzaRDx6oZC6GiR6ERwe1MowGB
+```
+
+---
+
+# Level 28
+
+## Task
+
+There is a git repository at `ssh://bandit27-git@localhost/home/bandit27-git/repo` via the port `2220`. The password for the user `bandit27-git` is the same as for the user `bandit27`.
+
+Clone the repository and find the password for the next level.
+
+## Solution
+
+We create a temporary directory to clone the respository and find the password there.3
+
+`git clone` is used, with the [syntax](https://git-scm.com/docs/git-clone#_git_urls "Syntax of URLs for git clone") being `ssh://<user>@<host>:<port>/<path-to-git-repo>`
+
+```
+bandit27@bandit:~$ mktemp -d
+/tmp/tmp.kkOUXuV8TC
+bandit27@bandit:~$ cd /tmp/tmp.kkOUXuV8TC
+bandit27@bandit:/tmp/tmp.kkOUXuV8TC$ git clone ssh://bandit27-git@localhost:2220/home/bandit27-git/repo
+Cloning into 'repo'...
+The authenticity of host '[localhost]:2220 ([127.0.0.1]:2220)' can't be established.
+ED25519 key fingerprint is SHA256:C2ihUBV7ihnV1wUXRb4RrEcLfXC5CXlhmAAM/urerLY.
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Could not create directory '/home/bandit27/.ssh' (Permission denied).
+Failed to add the host to the list of known hosts (/home/bandit27/.ssh/known_hosts).
+                         _                     _ _ _
+                        | |__   __ _ _ __   __| (_) |_
+                        | '_ \ / _` | '_ \ / _` | | __|
+                        | |_) | (_| | | | | (_| | | |_
+                        |_.__/ \__,_|_| |_|\__,_|_|\__|
+
+
+                      This is an OverTheWire game server.
+            More information on http://www.overthewire.org/wargames
+
+bandit27-git@localhost's password:
+remote: Enumerating objects: 3, done.
+remote: Counting objects: 100% (3/3), done.
+remote: Compressing objects: 100% (2/2), done.
+remote: Total 3 (delta 0), reused 0 (delta 0), pack-reused 0
+Receiving objects: 100% (3/3), done.
+```
+
+From there, we look into the repository to find the password.
+
+```
+bandit27@bandit:/tmp/tmp.kkOUXuV8TC$ ls -A
+repo
+bandit27@bandit:/tmp/tmp.kkOUXuV8TC$ cd repo
+bandit27@bandit:/tmp/tmp.kkOUXuV8TC/repo$ ls -A
+.git  README
+bandit27@bandit:/tmp/tmp.kkOUXuV8TC/repo$ cat README
+The password to the next level is: Yz9IpL0sBcCeuG7m9uQFt8ZNpS4HZRcN
+```
+
+---
+
+# Level 29
+
+## Task
+
+There is a git repository at ssh://bandit28-git@localhost/home/bandit28-git/repo via the port 2220. The password for the user bandit28-git is the same as for the user bandit28.
+
+Clone the repository and find the password for the next level.
+
+## Solution
+
+We do the same initial steps as before, cloning the repository and looking into its files.
+
+```
+bandit28@bandit:~$ mktemp -d
+/tmp/tmp.erbTy5FUT1
+bandit28@bandit:~$ cd /tmp/tmp.erbTy5FUT1
+bandit28@bandit:/tmp/tmp.erbTy5FUT1$ git clone ssh://bandit28-git@localhost:2220/home/bandit28-git/repo
+Cloning into 'repo'...
+[...]
+bandit28@bandit:/tmp/tmp.erbTy5FUT1$ ls -A
+repo
+bandit28@bandit:/tmp/tmp.erbTy5FUT1$ cd repo
+bandit28@bandit:/tmp/tmp.erbTy5FUT1/repo$ ls -A
+.git  README.md
+bandit28@bandit:/tmp/tmp.erbTy5FUT1/repo$ cat README.md
+# Bandit Notes
+Some notes for level29 of bandit.
+
+## credentials
+
+- username: bandit29
+- password: xxxxxxxxxx
+```
+
+The password has been removed out, so we should look elsewhere. We can check the history of the repository using `git log`, showing the commit log.
+
+```
+bandit28@bandit:/tmp/tmp.erbTy5FUT1/repo$ git log
+commit 674690a00a0056ab96048f7317b9ec20c057c06b (HEAD -> master, origin/master, origin/HEAD)
+Author: Morla Porla <morla@overthewire.org>
+Date:   Thu Apr 10 14:23:19 2025 +0000
+
+    fix info leak
+
+commit fb0df1358b1ff146f581651a84bae622353a71c0
+Author: Morla Porla <morla@overthewire.org>
+Date:   Thu Apr 10 14:23:19 2025 +0000
+
+    add missing data
+
+commit a5fdc97aae2c6f0e6c1e722877a100f24bcaaa46
+Author: Ben Dover <noone@overthewire.org>
+Date:   Thu Apr 10 14:23:19 2025 +0000
+
+    initial commit of README.md
+```
+
+`fix info leak` probably means that it was the latest commit that removed the password, so we should check that commit using `git show`.
+
+`git show <object>` is used to show all changes made in that particular commit.
+
+```
+bandit28@bandit:/tmp/tmp.erbTy5FUT1/repo$ git show fb0df1358b1ff146f581651a84bae622353a71c0
+commit fb0df1358b1ff146f581651a84bae622353a71c0
+Author: Morla Porla <morla@overthewire.org>
+Date:   Thu Apr 10 14:23:19 2025 +0000
+
+    add missing data
+
+diff --git a/README.md b/README.md
+index 7ba2d2f..d4e3b74 100644
+--- a/README.md
++++ b/README.md
+@@ -4,5 +4,5 @@ Some notes for level29 of bandit.
+ ## credentials
+
+ - username: bandit29
+-- password: <TBD>
++- password: 4pT1t5DENaYuqnqvadYs1oE4QLCdjmJ7
+```
+
+## Extras
+
+Alternatively, we could also use the syntax for `git show` shown in the [git documentation](https://git-scm.com/docs/git-show#Documentation/git-show.txt-gitshownext10DocumentationREADME "Git documentation, examples for git show").
+
+> **git show next~10:Documentation/README**
+> 
+> - Shows the contents of the file Documentation/README as they were current in the 10th last commit of the branch next.
+
+```
+bandit28@bandit:/tmp/tmp.erbTy5FUT1/repo$ git show master~1:README.md
+# Bandit Notes
+Some notes for level29 of bandit.
+
+## credentials
+
+- username: bandit29
+- password: 4pT1t5DENaYuqnqvadYs1oE4QLCdjmJ7
+```
+
+---
+
+# Level 30
+
+## Task
+
+There is a git repository at ssh://bandit29-git@localhost/home/bandit29-git/repo via the port 2220. The password for the user bandit29-git is the same as for the user bandit29.
+
+Clone the repository and find the password for the next level.
+
+## Solution
+
+Same as before, we clone the repository into our working directory and inspect the README.md file, also checking through `git log`.
+
+```
+bandit29@bandit:~$ mktemp -d
+/tmp/tmp.7qKu8fhTxW
+bandit29@bandit:~$ cd /tmp/tmp.7qKu8fhTxW
+bandit29@bandit:/tmp/tmp.7qKu8fhTxW$ git clone ssh://bandit29-git@localhost:2220/home/bandit29-git/repo
+Cloning into 'repo'...
+[...]
+bandit29@bandit:/tmp/tmp.7qKu8fhTxW$ cd repo
+bandit29@bandit:/tmp/tmp.7qKu8fhTxW/repo$ ls -A
+.git  README.md
+bandit29@bandit:/tmp/tmp.7qKu8fhTxW/repo$ cat README.md
+# Bandit Notes
+Some notes for bandit30 of bandit.
+
+## credentials
+
+- username: bandit30
+- password: <no passwords in production!>
+bandit29@bandit:/tmp/tmp.7qKu8fhTxW/repo$ git log
+commit 3b8b91fc3c48f1a19d05670fd45d3e3f2621fcfa (HEAD -> master, origin/master, origin/HEAD)
+Author: Ben Dover <noone@overthewire.org>
+Date:   Thu Apr 10 14:23:21 2025 +0000
+
+    fix username
+
+commit 8d2ffeb5e45f87d0abb028aa796e3ebb63c5579c
+Author: Ben Dover <noone@overthewire.org>
+Date:   Thu Apr 10 14:23:21 2025 +0000
+
+    initial commit of README.md
+bandit29@bandit:/tmp/tmp.7qKu8fhTxW/repo$ git show master~1:README.md
+# Bandit Notes
+Some notes for bandit30 of bandit.
+
+## credentials
+
+- username: bandit29
+- password: <no passwords in production!>
+```
+
+`<no passwords in production!>` implies that the passwords are in a separate development branch.
+
+We can use `git branch` to see existing branches. `-a` is included to see remote branches, otherwise we would only see local branches.
+
+```
+bandit29@bandit:/tmp/tmp.7qKu8fhTxW/repo$ git branch --list
+* master
+bandit29@bandit:/tmp/tmp.7qKu8fhTxW/repo$ git branch --list -a
+* master
+  remotes/origin/HEAD -> origin/master
+  remotes/origin/dev
+  remotes/origin/master
+  remotes/origin/sploits-dev
+```
+
+`git switch` or `git checkout` is used to switch branches.
+
+Switching to a remote branch needs the `--detach` option. This creates a local clone of the branch.
+
+```
+bandit29@bandit:/tmp/tmp.7qKu8fhTxW/repo$ git switch remotes/origin/dev
+fatal: a branch is expected, got remote branch 'origin/dev'
+hint: If you want to detach HEAD at the commit, try again with the --detach option.
+bandit29@bandit:/tmp/tmp.7qKu8fhTxW/repo$ git switch --detach remotes/origin/dev
+HEAD is now at a97d0db add data needed for development
+bandit29@bandit:/tmp/tmp.7qKu8fhTxW/repo$ git branch -a
+* (HEAD detached at origin/dev)
+  master
+  remotes/origin/HEAD -> origin/master
+  remotes/origin/dev
+  remotes/origin/master
+  remotes/origin/sploits-dev
+```
+
+Here we find the password for the next level.
+
+```
+bandit29@bandit:/tmp/tmp.7qKu8fhTxW/repo$ ls -A
+code  .git  README.md
+bandit29@bandit:/tmp/tmp.7qKu8fhTxW/repo$ cat README.md
+# Bandit Notes
+Some notes for bandit30 of bandit.
+
+## credentials
+
+- username: bandit30
+- password: qp30ex3VLz5MDG1n91YowTv4Q8l7CDZL
+```
+
+---
+
+# Level 31
+
+## Task
+
+There is a git repository at ssh://bandit30-git@localhost/home/bandit30-git/repo via the port 2220. The password for the user bandit30-git is the same as for the user bandit30.
+
+Clone the repository and find the password for the next level.
+
+## Solution
+
+We go through the same steps as in the previous few levels,
+
+```
+bandit30@bandit:~$ mktemp -d
+/tmp/tmp.faBGObl8FM
+bandit30@bandit:~$ cd /tmp/tmp.faBGObl8FM
+bandit30@bandit:/tmp/tmp.faBGObl8FM$ git clone ssh://bandit30-git@localhost:2220/home/bandit30-git/repo
+Cloning into 'repo'...
+[...]
+bandit30@bandit:/tmp/tmp.faBGObl8FM$ cd repo
+bandit30@bandit:/tmp/tmp.faBGObl8FM/repo$ ls -A
+.git  README.md
+bandit30@bandit:/tmp/tmp.faBGObl8FM/repo$ cat README.md
+just an epmty file... muahaha
+bandit30@bandit:/tmp/tmp.faBGObl8FM/repo$ git log
+commit fb05775f973256dc6d8d5bb6a8e6b96b0d8795c8 (HEAD -> master, origin/master, origin/HEAD)
+Author: Ben Dover <noone@overthewire.org>
+Date:   Thu Apr 10 14:23:24 2025 +0000
+
+    initial commit of README.md
+bandit30@bandit:/tmp/tmp.faBGObl8FM/repo$ git branch -a
+* master
+  remotes/origin/HEAD -> origin/master
+  remotes/origin/master
+```
+
+There are no other details in previous commits or branches.
+
+We can also check the tags using `git tag`. This is used with `-l` to list tags.
+
+Once we know the tags, we can use `git show` to show their message.
+
+```
+bandit30@bandit:/tmp/tmp.faBGObl8FM/repo$ git tag -l
+secret
+bandit30@bandit:/tmp/tmp.faBGObl8FM/repo$ git show secret
+fb5S2xb7bRyFmAvQYQGEqsbhVyJqhnDy
+```
+
+---
+
+# Level 32
+
+## Task
+
+There is a git repository at ssh://bandit31-git@localhost/home/bandit31-git/repo via the port 2220. The password for the user bandit31-git is the same as for the user bandit31.
+
+Clone the repository and find the password for the next level.
+
+## Solution
+
+```
+bandit31@bandit:~$ mktemp -d
+/tmp/tmp.4hov8ru73o
+bandit31@bandit:~$ cd /tmp/tmp.4hov8ru73o
+bandit31@bandit:/tmp/tmp.4hov8ru73o$ git clone ssh://bandit31-git@localhost:2220/home/bandit31-git/repo
+Cloning into 'repo'...
+[...]
+bandit31@bandit:/tmp/tmp.4hov8ru73o$ cd repo
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ ls -A
+.git  .gitignore  README.md
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ cat README.md
+This time your task is to push a file to the remote repository.
+
+Details:
+    File name: key.txt
+    Content: 'May I come in?'
+    Branch: master
+```
+
+Out task is to push a file to a remote repository. To do this, we need a few commands: `git add`, `git commmit`, and `git push`. Additionally, the `.gitignore` file instructs `git add` to ignore files ending with `.txt`.
+
+```
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ cat .gitignore
+*.txt
+```
+
+We first create and write the message to a new file `key.txt`.
+
+```
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ nano key.txt
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ cat key.txt
+May I come in?
+```
+
+Attempting to run `git add .` by itself results in no files added. We can see what files have been staged using `git diff --staged --name-only`.
+
+It also ignores the command when `key.txt` is specified.
+
+```
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ git add .
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ git diff --staged --name-only
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ git add key.txt
+The following paths are ignored by one of your .gitignore files:
+key.txt
+hint: Use -f if you really want to add them.
+hint: Turn this message off by running
+hint: "git config advice.addIgnoredFile false"
+```
+
+We could follow the suggestion to use the `-f` tag, or we could remove `.txt` from `.gitignore`. Both options are shown separately below, with the staged area reset between them using `git reset`.
+
+```
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ git add -f key.txt
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ git diff --staged --name-only
+key.txt
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ git reset
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ rm .gitignore
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ git add key.txt
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ git diff --staged --name-only
+key.txt
+```
+
+The repository was restored to include `.gitignore` again, and we'll proceed with using `git add -f key.txt`.
+
+Note that restoring the repository did not remove key.txt, as it is still untracked, even though it is still in the staged area.
+
+```
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ git restore .
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ ls -A
+.git  .gitignore  key.txt  README.md
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ git diff --staged --name-only
+key.txt
+```
+
+We're now ready to commit the changes using `git commit -a`. The `-a` flag automatically stages files that have been modified and deleted, but not new (untracked) files.
+
+It opens up nano to enter a message which could be anything, but I typed `Add key.txt`.
+
+```
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ git commit -a
+Unable to create directory /home/bandit31/.local/share/nano/: No such file or directory
+It is required for saving/loading search history or cursor positions.
+
+[master 4e71748] Add key.txt
+ 1 file changed, 1 insertion(+)
+ create mode 100644 key.txt
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ git log
+commit 4e717489ce4e3280b3fb902e08f5d39bd7a0ef86 (HEAD -> master)
+Author: bandit31 <bandit31@overthewire.org>
+Date:   Tue Jul 22 16:23:11 2025 +0000
+
+    Add key.txt
+
+commit 9f2814daa679b29d2c8f78f2766e7e9332445a41 (origin/master, origin/HEAD)
+Author: Ben Dover <noone@overthewire.org>
+Date:   Thu Apr 10 14:23:26 2025 +0000
+
+    initial commit
+```
+
+We'll then push the new commit to the remote repository using `git push origin master`, as shown in the [example section of the git-push doucmentation](https://git-scm.com/docs/git-push#_examples "Example section of the Git documentation for git push").
+
+```
+bandit31@bandit:/tmp/tmp.4hov8ru73o/repo$ git push origin master
+[...]
+Enumerating objects: 4, done.
+Counting objects: 100% (4/4), done.
+Delta compression using up to 2 threads
+Compressing objects: 100% (2/2), done.
+Writing objects: 100% (3/3), 325 bytes | 325.00 KiB/s, done.
+Total 3 (delta 0), reused 0 (delta 0), pack-reused 0
+remote: ### Attempting to validate files... ####
+remote:
+remote: .oOo.oOo.oOo.oOo.oOo.oOo.oOo.oOo.oOo.oOo.
+remote:
+remote: Well done! Here is the password for the next level:
+remote: 3O9RfhqyAlVBEZpVb6LYStshZoqoSx5K
+remote:
+remote: .oOo.oOo.oOo.oOo.oOo.oOo.oOo.oOo.oOo.oOo.
+```
+
+---
+
+# Level 33
+
+## Task
+
+After all this git stuff, it’s time for another escape. Good luck!
+
+## Solution
+
+We are greeted by aggressive text upon logging in.
+
+```
+WELCOME TO THE UPPERCASE SHELL
+>> ls
+sh: 1: LS: Permission denied
+>> printenv
+sh: 1: PRINTENV: Permission denied
+>> 123
+sh: 1: 123: Permission denied
+>> $
+sh: 1: $: Permission denied
+```
+
+As the introductory message suggests, all alphabetical input is converted to uppercase, but numbers and symbols are not. This is then sent to be executed, presumably in the `sh` shell. We need to find a way to break out of the `UPPERCASE SHELL` using only symbols and numbers.
+
+`$0` in bash is used to refer to the name of the shell script, or if bash is directly invoked, then `$0` refers to bash (or sh, or /bin/bash, or /bin/sh) itself and can be used to invoke bash again.
+
+```
+>> $0
+$ echo $0
+sh
+```
+
+Once we're in a regular shell, we can examine the home folder contents. We see that `uppershell` is owned by bandit33.
+
+```
+$ ls -A
+.bash_logout  .bashrc  .profile  uppershell
+$ ls -lA
+total 28
+-rw-r--r-- 1 root     root       220 Mar 31  2024 .bash_logout
+-rw-r--r-- 1 root     root      3771 Mar 31  2024 .bashrc
+-rw-r--r-- 1 root     root       807 Mar 31  2024 .profile
+-rwsr-x--- 1 bandit33 bandit32 15140 Apr 10 14:23 uppershell
+```
+
+The `s` attribute in the permissions indicates that the file will run with the user ID of the owner when executed, in this case bandit33.
+
+We can confirm this using `whoami`.
+
+```
+$ whoami
+bandit33
+```
+
+With this, we can get the password from the `/etc/bandit_pass` folder.
+
+```
+$ cat /etc/bandit_pass/bandit33
+tQdtbs5D5i2vJwkO8mEyYEyTL8izoeJ0
+```
+
+---
+
+# Level 34
+
+```
+bandit33@bandit:~$ ls -A
+.bash_logout  .bashrc  .profile  README.txt
+bandit33@bandit:~$ cat README.txt
+Congratulations on solving the last level of this game!
+
+At this moment, there are no more levels to play in this game. However, we are constantly working
+on new levels and will most likely expand this game with more levels soon.
+Keep an eye out for an announcement on our usual communication channels!
+In the meantime, you could play some of our other wargames.
+
+If you have an idea for an awesome new level, please let us know!
+```
